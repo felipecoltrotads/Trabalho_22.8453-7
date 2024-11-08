@@ -1,0 +1,52 @@
+version: '3'
+
+services:
+  flask-app:
+    build:
+      context: .
+      dockerfile: Dockerfile_flask
+    ports:
+      - "5000:5000"
+    networks:
+      - monitoring
+
+  mariadb:
+    build:
+      context: .
+      dockerfile: Dockerfile_mariadb
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_DATABASE: flask_db
+    ports:
+      - "3306:3306"
+    networks:
+      - monitoring
+
+  prometheus:
+    image: prom/prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    networks:
+      - monitoring
+
+  grafana:
+    image: grafana/grafana
+    ports:
+      - "3000:3000"
+    networks:
+      - monitoring
+    depends_on:
+      - prometheus
+
+  mysqld_exporter:
+    image: prom/mysqld-exporter
+    environment:
+      DATA_SOURCE_NAME: "root:root_password@(mariadb:3306)/"
+    networks:
+      - monitoring
+
+networks:
+  monitoring:
+    driver: bridge
