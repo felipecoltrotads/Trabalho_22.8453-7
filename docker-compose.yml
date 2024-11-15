@@ -1,54 +1,57 @@
-version: '3'
+# docker-compose.yml
+version: '3.9'
 
 services:
-  flask-app:
-    build:
-      context: .
-      dockerfile: Dockerfile_flask
-    ports:
-      - "5000:5000"
-    networks:
-      - monitoring
-
   mariadb:
     build:
       context: .
       dockerfile: Dockerfile_mariadb
-    environment:
-      MYSQL_ROOT_PASSWORD: root_password
-      MYSQL_DATABASE: flask_db
+    container_name: mariadb_container
     ports:
       - "3306:3306"
-    networks:
-      - monitoring
+    volumes:
+      - db_data:/var/lib/mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_DATABASE: school_db
+      MYSQL_USER: flask_user
+      MYSQL_PASSWORD: flask_password
+
+  flask_app:
+    build:
+      context: .
+      dockerfile: Dockerfile_flask
+    container_name: flask_app_container
+    ports:
+      - "5000:5000"
+    depends_on:
+      - mariadb
+    environment:
+      FLASK_APP: app
+      FLASK_ENV: development
+      FLASK_DB_HOST: mariadb
+      FLASK_DB_USER: flask_user
+      FLASK_DB_PASSWORD: flask_password
+      FLASK_DB_NAME: school_db
 
   prometheus:
-    image: prom/prometheus
+    image: prom/prometheus:latest
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
     ports:
       - "9090:9090"
-    networks:
-     - monitoring
-     depends_on:
-     - flask_app
+    depends_on:
+      - flask_app
 
   grafana:
-    image: grafana/grafana
+    image: grafana/grafana:latest
     ports:
       - "3000:3000"
-    networks:
-      - monitoring
+    volumes:
+      - grafana_data:/var/lib/grafana
     depends_on:
       - prometheus
 
-  mysqld_exporter:
-    image: prom/mysqld-exporter
-    environment:
-      DATA_SOURCE_NAME: "root:root_password@(mariadb:3306)/"
-    networks:
-      - monitoring
-
-networks:
-  monitoring:
-    driver: bridge
+volumes:
+  db_data:
+  grafana_data:
